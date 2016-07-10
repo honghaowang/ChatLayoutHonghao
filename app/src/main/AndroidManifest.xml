@@ -20,6 +20,9 @@
             </intent-filter>
         </activity>
 
+        <service android:name=".MovesLogService" >
+
+        </service>
     </application>
 
 </manifest>

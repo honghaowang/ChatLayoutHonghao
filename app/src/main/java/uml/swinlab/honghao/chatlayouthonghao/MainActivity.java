@@ -1,5 +1,6 @@
 package uml.swinlab.honghao.chatlayouthonghao;
 
+import android.content.Intent;
 import android.os.AsyncTask;
 import android.provider.Settings;
 import android.support.v7.app.AppCompatActivity;
@@ -12,6 +13,14 @@ import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
+import android.widget.Toast;
+
+import com.midhunarmid.movesapi.MovesAPI;
+import com.midhunarmid.movesapi.MovesHandler;
+import com.midhunarmid.movesapi.auth.AuthData;
+import com.midhunarmid.movesapi.storyline.StorylineData;
+import com.midhunarmid.movesapi.summary.SummaryData;
+import com.midhunarmid.movesapi.util.MovesStatus;
 
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
@@ -23,7 +32,9 @@ import org.json.JSONObject;
 
 import java.io.IOException;
 import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.concurrent.ExecutionException;
 
@@ -44,6 +55,39 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         deviceID = Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID);
         initControls();
+
+        try {
+            MovesAPI.init(this, Constant.CLIENT_ID, Constant.clientSecret, Constant.MOVES_SCOPES, Constant.REDIRECT_URI);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        MovesHandler<AuthData> authDialogHandler = new MovesHandler<AuthData>() {
+            @Override
+            public void onSuccess(AuthData result) {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Toast.makeText(MainActivity.this, "Authenticated Successfully", Toast.LENGTH_LONG).show();
+                    }
+                });
+            }
+
+            @Override
+            public void onFailure(MovesStatus status, String message) {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Toast.makeText(MainActivity.this, "Authentication Fails", Toast.LENGTH_LONG).show();
+                    }
+                });
+            }
+        };
+        MovesAPI.authenticate(authDialogHandler, this);
+
+        Intent intent = new Intent(this, MovesLogService.class);
+        startService(intent);
+
     }
 
     private void initControls(){
@@ -61,6 +105,39 @@ public class MainActivity extends AppCompatActivity {
         sendBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                /**
+                MovesHandler<ArrayList<StorylineData>> storylineHandler = new MovesHandler<ArrayList<StorylineData>>() {
+                    @Override
+                    public void onSuccess(final ArrayList<StorylineData> result) {
+                        Log.e(TAG, String.valueOf(result.size()));
+                        for(int i=0; i<result.size(); i++){
+                            Log.d(TAG, result.get(i).getDate());
+                            ArrayList<SummaryData> summary = result.get(i).getSummary();
+
+                            for(int j=0; j<summary.size(); j++){
+                                Log.e(TAG, "Summary-->" + String.valueOf(j));
+                                Log.d(TAG, summary.get(j).getActivity());
+                                Log.d(TAG, summary.get(j).getGroup());
+                                Log.d(TAG, summary.get(j).getCalories());
+                                Log.d(TAG, summary.get(j).getDistance());
+                                Log.d(TAG, summary.get(j).getDuration());
+                                Log.d(TAG, summary.get(j).getSteps());
+                            }
+                            Log.d(TAG, result.get(i).getSegments().toString());
+                        }
+
+                    }
+
+                    @Override
+                    public void onFailure(MovesStatus status, String message) {
+                        Log.d(TAG, "Request Failed! \n"
+                                + "Status Code : " + status + "\n"
+                                + "Status Message : " + message + "\n\n"
+                                + "Specific Message : " + status.getStatusMessage());
+                    }
+                };
+                MovesAPI.getStoryline_SingleDay(storylineHandler, getFormattedDate(), null, false);
+                 **/
                 String messageText = messageET.getText().toString();
                 if (TextUtils.isEmpty(messageText)) {
                     return;
@@ -81,8 +158,8 @@ public class MainActivity extends AppCompatActivity {
                 try {
                      res = new Send07().execute(messageText).get();
                     JSONObject jsonObject = new JSONObject(res);
-                    if(jsonObject.has("Manufacture")){
-                        brand = jsonObject.getString("Manufacture");
+                    if(jsonObject.has("Brand")){
+                        brand = jsonObject.getString("Brand");
                     }
                     if(jsonObject.has("Food")){
                         food = jsonObject.getString("Food");
@@ -106,6 +183,11 @@ public class MainActivity extends AppCompatActivity {
                 textID++;
             }
         });
+    }
+
+    public String getFormattedDate(){
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd");
+        return dateFormat.format(Calendar.getInstance().getTime());
     }
 
     public void displayMessage(ChatMessage message) {
@@ -154,8 +236,8 @@ public class MainActivity extends AppCompatActivity {
             String TAG = "Send07";
             String jsonStr = null;
             try {
-                Log.d(TAG, params[0]);
-                Log.d(TAG, deviceID);
+                Log.d(TAG, "Text--->" + params[0]);
+                Log.d(TAG, "User--->" + deviceID);
                 HttpResponse response = null;
                 HttpClient client = new DefaultHttpClient();
                 String swin07URL = "http://swin07.cs.uml.edu:8080/";
