@@ -1,18 +1,19 @@
 package uml.swinlab.honghao.chatlayouthonghao;
 
 import android.app.Service;
+import android.content.ContentValues;
 import android.content.Intent;
+import android.database.sqlite.SQLiteDatabase;
 import android.os.IBinder;
 import android.support.annotation.Nullable;
 import android.util.Log;
-import android.widget.Toast;
 
 import com.midhunarmid.movesapi.MovesAPI;
 import com.midhunarmid.movesapi.MovesHandler;
 import com.midhunarmid.movesapi.activity.ActivityData;
-import com.midhunarmid.movesapi.auth.AuthData;
 import com.midhunarmid.movesapi.segment.SegmentData;
 import com.midhunarmid.movesapi.storyline.StorylineData;
+import com.midhunarmid.movesapi.summary.SummaryData;
 import com.midhunarmid.movesapi.util.MovesStatus;
 
 import java.text.SimpleDateFormat;
@@ -20,6 +21,9 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Timer;
 import java.util.TimerTask;
+
+import uml.swinlab.honghao.chatlayouthonghao.LocalDatabase.DBconstant;
+import uml.swinlab.honghao.chatlayouthonghao.LocalDatabase.MovesDBHelper;
 
 /**
  * Created by Honghao on 7/6/2016.
@@ -29,6 +33,8 @@ public class MovesLogService extends Service {
     private Timer timer;
     private TimerTask getTimeline;
     MovesHandler<ArrayList<StorylineData>> storylineHandler;
+    private Boolean firstTime = true;
+    SQLiteDatabase db;
 
     @Override
     public void onCreate() {
@@ -36,34 +42,35 @@ public class MovesLogService extends Service {
 
         Log.d(TAG, "onCreate");
         timer = new Timer();
-        /**
-        try {
-            MovesAPI.init(this, Constant.CLIENT_ID, Constant.clientSecret, Constant.MOVES_SCOPES, Constant.REDIRECT_URI);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
 
-        MovesHandler<AuthData> authDialogHandler = new MovesHandler<AuthData>() {
-            @Override
-            public void onSuccess(AuthData result) {
-
-            }
-
-            @Override
-            public void onFailure(MovesStatus status, String message) {
-
-            }
-        };
-        MovesAPI.authenticate(authDialogHandler,this);
-         **/
+        db = new MovesDBHelper(this).getWritableDatabase();
         storylineHandler = new MovesHandler<ArrayList<StorylineData>>() {
             @Override
             public void onSuccess(final ArrayList<StorylineData> result) {
-                Log.d(TAG, "result:" + result.toString());
-                ArrayList<SegmentData> segment = result.get(0).getSegments();
-                for(int i=0; i<segment.size(); i++) {
-                    ArrayList<ActivityData> activities = segment.get(i).getActivities();
+                Log.e(TAG, String.valueOf(result.size()));
+                if(firstTime) {
+                    ArrayList<SegmentData> segments = result.get(0).getSegments();
 
+                    for (int i = 0; i < segments.size(); i++) {
+                        ArrayList<ActivityData> activityDatas = segments.get(i).getActivities();
+                        for(int j=0; j<segments.size(); j++){
+                            ContentValues values = new ContentValues();
+                            values.put(DBconstant.TIME, getTime());
+                            values.put(DBconstant.TOTAL_STEP, activityDatas.get(j).getSteps());
+                            db.insert(DBconstant.MOVES_DATA_TABLE, null, values);
+                        }
+                    }
+                    firstTime = false;
+                }
+                else {
+                    int size = result.get(0).getSegments().size();
+                    ContentValues values = new ContentValues();
+                    SegmentData lastSegement = result.get(0).getSegments().get(size);
+                    size = lastSegement.getActivities().size();
+                    ActivityData lastActivity = lastSegement.getActivities().get(size);
+                    values.put(DBconstant.TIME, getTime());
+                    values.put(DBconstant.TOTAL_STEP, lastActivity.getSteps());
+                    db.insert(DBconstant.MOVES_DATA_TABLE, null, values);
                 }
             }
 
@@ -83,7 +90,7 @@ public class MovesLogService extends Service {
             }
         };
 
-        timer.schedule(getTimeline, 5000, 10000);
+        timer.schedule(getTimeline, 5000, 600000);
     }
 
     @Nullable
@@ -95,5 +102,10 @@ public class MovesLogService extends Service {
     public String getFormattedDate(){
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd");
         return dateFormat.format(Calendar.getInstance().getTime());
+    }
+
+    public String getTime(){
+        SimpleDateFormat time = new SimpleDateFormat("HH:mm:SS MM-dd-yyyy");
+        return time.format(Calendar.getInstance().getTime());
     }
 }

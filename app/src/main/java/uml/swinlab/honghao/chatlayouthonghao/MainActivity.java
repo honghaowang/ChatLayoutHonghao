@@ -1,6 +1,8 @@
 package uml.swinlab.honghao.chatlayouthonghao;
 
 import android.content.Intent;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
 import android.os.AsyncTask;
 import android.provider.Settings;
 import android.support.v7.app.AppCompatActivity;
@@ -38,6 +40,9 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.concurrent.ExecutionException;
 
+import uml.swinlab.honghao.chatlayouthonghao.LocalDatabase.DBconstant;
+import uml.swinlab.honghao.chatlayouthonghao.LocalDatabase.MovesDBHelper;
+
 public class MainActivity extends AppCompatActivity {
 
     private EditText messageET;
@@ -48,6 +53,7 @@ public class MainActivity extends AppCompatActivity {
     private String TAG = "MainActivity";
     private int textID = 1;
     private String deviceID;
+    SQLiteDatabase db;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -56,6 +62,7 @@ public class MainActivity extends AppCompatActivity {
         deviceID = Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID);
         initControls();
 
+        db = new MovesDBHelper(this).getReadableDatabase();
         try {
             MovesAPI.init(this, Constant.CLIENT_ID, Constant.clientSecret, Constant.MOVES_SCOPES, Constant.REDIRECT_URI);
         } catch (Exception e) {
@@ -105,44 +112,27 @@ public class MainActivity extends AppCompatActivity {
         sendBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                /**
-                MovesHandler<ArrayList<StorylineData>> storylineHandler = new MovesHandler<ArrayList<StorylineData>>() {
-                    @Override
-                    public void onSuccess(final ArrayList<StorylineData> result) {
-                        Log.e(TAG, String.valueOf(result.size()));
-                        for(int i=0; i<result.size(); i++){
-                            Log.d(TAG, result.get(i).getDate());
-                            ArrayList<SummaryData> summary = result.get(i).getSummary();
 
-                            for(int j=0; j<summary.size(); j++){
-                                Log.e(TAG, "Summary-->" + String.valueOf(j));
-                                Log.d(TAG, summary.get(j).getActivity());
-                                Log.d(TAG, summary.get(j).getGroup());
-                                Log.d(TAG, summary.get(j).getCalories());
-                                Log.d(TAG, summary.get(j).getDistance());
-                                Log.d(TAG, summary.get(j).getDuration());
-                                Log.d(TAG, summary.get(j).getSteps());
-                            }
-                            Log.d(TAG, result.get(i).getSegments().toString());
-                        }
-
-                    }
-
-                    @Override
-                    public void onFailure(MovesStatus status, String message) {
-                        Log.d(TAG, "Request Failed! \n"
-                                + "Status Code : " + status + "\n"
-                                + "Status Message : " + message + "\n\n"
-                                + "Specific Message : " + status.getStatusMessage());
-                    }
-                };
-                MovesAPI.getStoryline_SingleDay(storylineHandler, getFormattedDate(), null, false);
-                 **/
                 String messageText = messageET.getText().toString();
                 if (TextUtils.isEmpty(messageText)) {
                     return;
                 }
 
+                if(messageText.equals("step")){
+                    String[] row= {DBconstant.TOTAL_STEP};
+                    Cursor cursor = db.query(DBconstant.MOVES_DATA_TABLE, row, null, null, null, null, null, null);
+                    if(cursor == null)
+                        return;
+                    //cursor.moveToLast();
+                    String step = cursor.getString(cursor.getCount());
+                    ChatMessage chatMessage = new ChatMessage();
+                    chatMessage.setId(textID);//dummy
+                    chatMessage.setMessage(step);
+                    chatMessage.setDate(DateFormat.getDateTimeInstance().format(new Date()));
+                    chatMessage.setMe(false);
+                    displayMessage(chatMessage);
+                    textID++;
+                }
                 ChatMessage chatMessage = new ChatMessage();
                 chatMessage.setId(textID);//dummy
                 chatMessage.setMessage(messageText);
